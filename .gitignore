@@ -1,0 +1,6 @@
+*~
+*.bak
+*.old
+.DS_Store
+tmp
+test/tmpdir/*

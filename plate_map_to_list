@@ -1,0 +1,232 @@
+#!/usr/bin/env ruby
+
+# plate_map_to_list.rb
+
+# Written by Robert Jones (jones@craic.com) - Distributed under MIT License
+
+# Detect the input separator? - count tabs and commas - pick the highest
+def detect_input_format(text)
+
+  tmp_text = String.new(text)
+  n_commas = tmp_text.gsub!(/[^\,]/, '').length
+  tmp_text = String.new(text)
+  n_tabs   = tmp_text.gsub!(/[^\t]/, '').length
+
+  sep = ''
+  if n_commas > 0 and n_commas > n_tabs
+    input_format = 'csv'
+    sep = "\,"
+  elsif n_tabs > 0 and n_tabs > n_commas
+    input_format = 'tab'
+    sep = "\t"
+  else
+    abort "ERROR: unable to detect input file format - must be CSV or Tab delimited"
+  end
+
+  return input_format, sep
+end
+
+#---------------------------------------
+
+require 'optparse'
+
+options = {}
+
+usage_string = "Usage: #{$0} [--plate 96|384] [--format tab|csv] [--order row|column] --[no-]skip-empty <plate map CSV file>" 
+
+option_parser = OptionParser.new do |opts|
+
+  opts.banner = usage_string
+  
+  opts.on("--plate PLATE_TYPE") do |plate_type|
+    if plate_type == '96'
+      options[:n_rows] = 8
+      options[:n_cols] = 12    
+    elsif plate_type == '384'
+      options[:n_rows] = 16
+      options[:n_cols] = 24
+    else
+      begin
+        raise ArgumentError, "ERROR: --plate value must be either 96 or 384"
+      rescue => e
+        puts e
+        exit
+      end
+    end
+    options[:plate_type] = plate_type
+  end
+
+  opts.on("--order ORDER") do |order|
+    if order =~ /row/i
+      order = 'row_major'
+    elsif order =~ /col/i
+      order = 'column_major'
+    else
+      begin
+        raise ArgumentError, "ERROR: --order must be row(_major) or col(umn_major)"
+      rescue => e
+        puts e
+        exit
+      end
+    end  
+    options[:order] = order
+  end
+
+  opts.on("--format FORMAT") do |format|
+    if format =~ /csv/i
+      format = 'csv'
+    elsif format =~ /tab/i
+      format = 'tab'
+    else
+      begin
+        raise ArgumentError, "ERROR: --format must be csv or tab"
+      rescue => e
+        puts e
+        exit
+      end
+    end  
+    options[:output_format] = format
+  end
+
+  opts.on("--[no-]skip-empty") do |value| 
+    options[:skip_empty] = value
+  end
+
+end
+
+option_parser.parse!
+
+# Enter any default values if not provided as Args
+if not options[:plate_type]
+  options[:plate_type]  = '96' 
+  options[:n_rows] = 8
+  options[:n_cols] = 12
+end
+options[:output_format] = 'csv'       if not options[:output_format]
+options[:order]         = 'row_major' if not options[:order]
+options[:skip_empty]    = false       if not options[:skip_empty]
+
+abort usage_string unless ARGV.length == 1
+
+# catch if the supplied file has .xls or .xlsx suffix
+if ARGV[0] =~ /\.xlsx?$/
+  abort "ERROR: Input file must be CSV or Tab delimited - not an Excel workbook"
+end
+
+#puts options.inspect
+
+# Handle alternate line termination characters and detect format
+
+text = open(ARGV[0], 'rb').read
+text.gsub!(/\r\n|\n|\r/, "\n")
+
+options[:input_format], sep = detect_input_format(text)
+
+# Finally we get to process the data
+
+cell_list = Array.new
+n_plates = 0
+plate_ids = Array.new
+
+col_header_flag = false
+row_header_flag = false
+
+text.each_line do |line|
+
+  line.chomp!
+  
+  if line =~ /plate\s+id\s+([^#{sep}]+)/i
+    plate_ids << $1
+  end
+
+# Need to detect ROWs for 384
+  if options[:n_rows] == 12
+    row_regex = 'A-H'
+  else
+    row_regex = 'A-P' # is the right range of letters?
+  end
+  
+#  if line =~ /^([A-H])#{sep}/ or line =~ /#{sep}([A-H])#{sep}/  # row start at left edge or internal
+  if line =~ /(^|#{sep})([#{row_regex}])#{sep}/ # row start at left edge or internal
+#    row = $1
+    row = $2
+    next if col_header_flag == false # Require a column header first
+    
+    row_array = line.split(/#{sep}/)
+
+    # find the row header and then get the values
+    cells = Array.new
+    row_header_flag = nil
+    i = 0
+    row_array.each do |cell|
+      if row_header_flag =~ /^[#{row_regex}]$/
+        cells << cell    
+        i += 1
+        break if i == options[:n_cols]
+      else
+        if cell =~ /^([#{row_regex}])$/
+          row_header_flag = $1
+        end
+      end
+    end
+        
+    # Add extra cells as needed to fill the desired number of cols
+    ((cells.length)...options[:n_cols]).each { |col| cells[col] = '' }
+
+    # Put the cell info into cell_list
+    col = 1
+    cells.each do |cell|
+      cell_list << [ n_plates, row, col, cell ]
+      col += 1
+    end
+
+#  elsif line =~ /1#{sep}2#{sep}3#{sep}4#{sep}5#{sep}6#{sep}7#{sep}8#{sep}9#{sep}10#{sep}11#{sep}12/  # column row
+# Need to detect 384 well plates
+
+  elsif line =~ /(\d+#{sep}){#{options[:n_cols] - 1}}\d+/ # column header row
+
+    col_header_flag = true
+
+  else
+    # Must be a non-plate row - reset the flag
+    n_plates += 1 if col_header_flag == true
+    col_header_flag = false
+  end
+  
+end
+
+n_plates += 1 if col_header_flag == true
+
+# Default order is row major - iterate down each row
+# Reorder the results otherwise
+if options[:order] == 'column_major'
+  cell_list.sort_by!{ |cell| [cell[0], cell[2], cell[1]] }
+end
+
+# If there were plate ids then insert these into the cells array
+if plate_ids.length > 0
+  (0...cell_list.length).each do |i|
+    cell_list[i][0] = plate_ids[cell_list[i][0]]
+  end
+else
+  # Increment the plate IDs so they range from 1...N instead of 0...N
+  (0...cell_list.length).each do |i|
+    cell_list[i][0] += 1
+  end
+end
+
+
+# Output the cells as a List with <plate> <row> <column> <value>
+
+# Modify this for your own purposes...
+
+cell_list.each do |cell|
+  next if options[:skip_empty] and cell[3] == ''
+  if options[:output_format] == 'tab'
+    puts cell.join("\t")
+  else
+    puts cell.join(",")
+  end
+
+end
+

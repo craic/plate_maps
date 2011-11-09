@@ -1,0 +1,51 @@
+plate_map_to_list.rb
+
+This is a utility that converts 96 or 384 well plate maps/layouts from CSV format into a simple list
+
+The input file can be in either Comma Separated Values (CSV) or Tab delimited format. 
+Both of these can be exported from Excel. The script auto detects the input format.
+
+The file can contain multiple plate maps and extraneous text. 
+
+
+In the case of a 96 well plate, the script will look for blocks of 8 rows and 12 columns 
+with a header row containing labels 1 through 12 and a header column containing labels A through H
+
+In the case of a 384 well plate, the script will look for blocks of 16 rows and 24 columns 
+with a header row containing labels 1 through 24 and a header column containing labels A through P
+
+Use the --plate option to specifiy 96 or 384 on the command line (96 is the default)
+
+These labels are Required - plates will not be identified if the labels are not found.
+
+Plate IDs can be specified with cells containing the text 'Plate ID XXXX' where XXXX can be arbitrary text.
+Those cells can be anywhere in the sheet.
+If not found then plates are numbered 1, 2, 3, etc
+
+Plates do not need to be full. The cells of each plate can contain arbitrary text
+
+
+The data is output as a table, or list in which each row represents a single cell from a table.
+The output fields are <plate> <row> <column> <value>
+
+The --format option determines the output format and can be 'csv' or 'tab' (csv is the default)
+
+The --[no-]skip-empty option determines whether to include empty cells in the output or not (--no-skip-empty is the default)
+
+The cells can be output in row or column major order.
+
+row_major outputs cells along each row before moving to the next (i.e. A1 A2 A3 ... B1 B2 B3 ...)
+column_major outputs cells down each column before moving to the next (i.e. A1 B1 C1 ... A2 B2 C2 ...)
+
+Use the --order option to specify this (row_major is the default)
+
+
+See the .csv and .tab files in the test directory for examples
+
+
+TODO: 
+- Currently it does not allow multiple plates left to right on the same rows
+
+
+
+The code was written by Robert Jones (jones@craic.com) and is distributed under the terms of the MIT license
