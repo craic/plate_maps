@@ -1,6 +1,22 @@
 plate_map_to_list.rb
 
-This is a utility that converts 96 or 384 well plate maps/layouts from CSV format into a simple list
+This is a utility that converts 96 or 384 well plate maps/layouts from CSV or Tab format into a simple list
+
+In molecular biology and related fields, we use rectangular plastic plates with 96 or 384 wells for many purposes, 
+allowing us to run many experiments in parallel. In particular, they are the standard format for tasks involving
+laboratory robotics, such as fluid dispensing, DNA sequencing, mass spectrometry, etc.
+
+In setting up a plate of samples, it is common for a researcher to use Excel to create a plate map. Converting this
+into a list of individual wells for input into an instrument or a piece of software should be straightforward
+but variability in manually created plate maps can be an issue. This script is an attempt to streamline this
+process. 
+
+The default output is probably not that useful in itself, but you can easily adapt the script to a specific purpose.
+It is open source - so have at it.
+
+--Rob Jones
+
+
 
 The input file can be in either Comma Separated Values (CSV) or Tab delimited format. 
 Both of these can be exported from Excel. The script auto detects the input format.
