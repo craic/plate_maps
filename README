@@ -43,9 +43,24 @@ Use the --order option to specify this (row_major is the default)
 See the .csv and .tab files in the test directory for examples
 
 
+Customizing the script
+
+The code is pretty simple with an output block at the very end. If you want to create a version that outputs the
+wells in a specific format then you should only need to change this last block.
+
+
+
+Tests
+
+A number of unit tests are included
+Run these with  '$ ruby test/test_plate_map_to_list.rb'
+
+
 TODO: 
 - Currently it does not allow multiple plates left to right on the same rows
+- Need to add more tests of command line arguments
+- Might want to add an option for Windows/Mac/Unix line termination choices.
 
-
+Please let me know if you find this useful
 
 The code was written by Robert Jones (jones@craic.com) and is distributed under the terms of the MIT license
